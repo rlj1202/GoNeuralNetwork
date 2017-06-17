@@ -11,9 +11,53 @@ import (
 	"time"
 	"math"
 	"encoding/json"
+	"bufio"
+	"io"
+	"strings"
 )
 
 func main() {
+	//logging()
+
+	costs := concatCostsResult(
+		"./HandWriting_2017-06-10_03-36.csv",
+		"./HandWriting_2017-06-10_04-19.csv",
+		"./HandWriting_2017-06-10_09-50.csv",
+		"./HandWriting_2017-06-10_10-42.csv",
+		"./HandWriting_2017-06-11_01-25.csv",
+		"./HandWriting_2017-06-14_01-43.csv")
+	writeCostsResult("./HandWriting_total.csv", costs)
+
+	//singleNeuron()
+	//logicNANDGate()
+	//handWriting()
+	//sorting()
+
+	//inputs := make([]Matrix, 0)
+	//for i := 0; i < 100; i++ {
+	//	digits := rand.Perm(10)[:3]
+	//
+	//	normDigits := make([]float64, 3)
+	//	for j, digit := range digits {
+	//		normDigits[j] = float64(digit) / 9.0
+	//	}
+	//
+	//	inputs = append(inputs, NewColVector(3, normDigits))
+	//}
+	//
+	//for _, input := range inputs {
+	//	result := loadNetworkAndFeedForward("./net_SortThreeDigits.json", input)
+	//
+	//	a := make([]int, 3)
+	//	for i, value := range input.Data {
+	//		a[i] = int(value * 9.0)
+	//	}
+	//
+	//	fmt.Printf("%.2v -> %.2v -> %.2v\n", a, input.Data, []int{argmax(result.Data[0:10]), argmax(result.Data[10:20]), argmax(result.Data[20:30])})
+	//}
+}
+
+func logging() {
 	logFileName := "log_"
 	logFileName = string(append([]byte(logFileName), []byte(time.Now().Format("2006-01-02_03-04"))...))
 	logFileName = string(append([]byte(logFileName), []byte(".txt")...))
@@ -24,41 +68,6 @@ func main() {
 	defer logFile.Close()
 
 	log.SetOutput(logFile)
-
-	//singleNeuron()
-	//logicNANDGate()
-	//handWriting()
-	//sorting()
-
-	inputs := make([]Matrix, 0)
-	for i := 0; i < 100; i++ {
-		digits := rand.Perm(10)[:3]
-		//for j := 0; j < 2; j++ {
-		//	for k := 0; k < 2; k++ {
-		//		if digits[k] > digits[k+1] {
-		//			digits[k+1], digits[k] = digits[k], digits[k+1]
-		//		}
-		//	}
-		//}
-
-		normDigits := make([]float64, 3)
-		for j, digit := range digits {
-			normDigits[j] = float64(digit) / 9.0
-		}
-
-		inputs = append(inputs, NewColVector(3, normDigits))
-	}
-
-	for _, input := range inputs {
-		result := loadNetworkAndFeedForward("./net_SortThreeDigits.json", input)
-
-		a := make([]int, 3)
-		for i, value := range input.Data {
-			a[i] = int(value * 9.0)
-		}
-
-		fmt.Printf("%.2v -> %.2v -> %.2v\n", a, input.Data, []int{argmax(result.Data[0:10]), argmax(result.Data[10:20]), argmax(result.Data[20:30])})
-	}
 }
 
 func loadNetworkAndFeedForward(fileName string, input Matrix) Matrix {
@@ -208,26 +217,35 @@ func handWriting() {
 	testLabelFile, _ := os.Open("mnist/t10k-labels.idx1-ubyte")
 	testDataSet := getTrainingData(testImageFile, testLabelFile)
 
-	printMatrix(Matrix{28, 28, testDataSet[0].in.Data}.Apply(func (a float64) float64 {
-		//if a > 0.5 {
-		//	return 1.0
-		//} else {
-		//	return 0.0
-		//}
-		return a
-	}))
-	printMatrix(Matrix{1, 10, testDataSet[0].out.Data})
+	//printMatrix(Matrix{28, 28, testDataSet[0].in.Data}.Apply(func (a float64) float64 {
+	//	//if a > 0.5 {
+	//	//	return 1.0
+	//	//} else {
+	//	//	return 0.0
+	//	//}
+	//	return a
+	//}))
+	//printMatrix(Matrix{1, 10, testDataSet[0].out.Data})
 
-	net := NewNetwork([]int{784, 30, 10}, nil, nil)
-
-	for i, bias := range net.Biases {
-		log.Printf("layer %d bias {%d, %d}\n", i + 2, bias.Rows, bias.Cols)
-	}
-	for i, weight := range net.Weights {
-		log.Printf("layer %d weight {%d, %d}\n", i + 2, weight.Rows, weight.Cols)
+	network, _ := loadNetwork("./net_HandWriting.json")
+	if network == nil {
+		network = new(Network)
+		*network = NewNetwork([]int{784, 30, 10}, nil, nil)
 	}
 
-	net.StochasticGradientDescent(trainingDataSet, 30, 10, 5.0, testDataSet[:10])
+	//for i, bias := range net.Biases {
+	//	log.Printf("layer %d bias {%d, %d}\n", i + 2, bias.Rows, bias.Cols)
+	//}
+	//for i, weight := range net.Weights {
+	//	log.Printf("layer %d weight {%d, %d}\n", i + 2, weight.Rows, weight.Cols)
+	//}
+
+	costs := network.StochasticGradientDescent(trainingDataSet, 2000, 10, 0.1, testDataSet[:10])
+
+	plotCosts(50, costs)
+
+	saveNetwork("./net_HandWriting.json", network)
+	writeCostsResult(fmt.Sprintf("./HandWriting_%s.csv", time.Now().Format("2006-01-02_03-04")), costs)
 }
 
 func logicNANDGate() {
@@ -314,6 +332,58 @@ func plotCosts(lines int, costs []float64) {
 		buffer.WriteString(fmt.Sprintf("%.2v\n", cost))
 		log.Print(buffer.String())
 	}
+}
+
+func concatCostsResult(fileNames ...string) []float64 {
+	result := make([]float64, 0)
+
+	for _, fileName := range fileNames {
+		costs := readCostsResult(fileName)
+
+		result = append(result, costs...)
+	}
+
+	return result
+}
+
+func readCostsResult(fileName string) []float64 {
+	result := make([]float64, 0)
+
+	file, err := os.Open(fileName)
+	defer file.Close()
+
+	if err != nil {
+		panic(err)
+	}
+
+	reader := bufio.NewReader(file)
+
+	_, _, err = reader.ReadLine()
+	if err != nil {
+		panic(err)
+	}
+
+	for {
+		var part []byte
+		if part, _, err = reader.ReadLine(); err != nil {
+			if err == io.EOF {
+				break
+			} else {
+				panic(err)
+			}
+		}
+
+		strs := strings.Split(string(part), ", ")
+		cost, err := strconv.ParseFloat(strs[1], 64)
+
+		if err != nil {
+			panic(err)
+		}
+
+		result = append(result, cost)
+	}
+
+	return result
 }
 
 func writeCostsResult(fileName string, costs []float64) {
