@@ -1,4 +1,4 @@
-package main
+package kec
 
 import (
 	"os"
@@ -10,26 +10,50 @@ import (
 )
 
 var (
-	conezoneFileName = "./ETC_conezone.txt"
+	coneZoneFileName = "./kec/ETC_conezone.txt"
 
 	fileNames = []string{
-		"./VDS_conezone_speed_201401.txt",
-		"./VDS_conezone_speed_201402.txt",
-		"./VDS_conezone_speed_201403.txt",
-		"./VDS_conezone_speed_201404.txt",
+		"./kec/VDS_conezone_speed_201401.txt",
+		"./kec/VDS_conezone_speed_201402.txt",
+		"./kec/VDS_conezone_speed_201403.txt",
+		"./kec/VDS_conezone_speed_201404.txt",
+		"./kec/VDS_conezone_speed_201405.txt",
+		"./kec/VDS_conezone_speed_201406.txt",
+		"./kec/VDS_conezone_speed_201407.txt",
+		"./kec/VDS_conezone_speed_201408.txt",
+		"./kec/VDS_conezone_speed_201409.txt",
+		"./kec/VDS_conezone_speed_201410.txt",
+		"./kec/VDS_conezone_speed_201411.txt",
+		"./kec/VDS_conezone_speed_201412.txt",
+		"./kec/VDS_conezone_speed_201501.txt",
+		"./kec/VDS_conezone_speed_201502.txt",
+		"./kec/VDS_conezone_speed_201503.txt",
+		"./kec/VDS_conezone_speed_201504.txt",
+		"./kec/VDS_conezone_speed_201505.txt",
+		"./kec/VDS_conezone_speed_201506.txt",
+		"./kec/VDS_conezone_speed_201507.txt",
+		"./kec/VDS_conezone_speed_201508.txt",
+		"./kec/VDS_conezone_speed_201509.txt",
+		"./kec/VDS_conezone_speed_201510.txt",
+		"./kec/VDS_conezone_speed_201511.txt",
+		"./kec/VDS_conezone_speed_201512.txt",
 	}
 
-	coneZoneNames = map[string]string{}
+	coneZoneNames map[string]string
 )
 
 func loadConeZoneNames() {
+	if coneZoneNames == nil {
+		coneZoneNames = make(map[string]string, 0)
+	}
+
 	var (
 		err error
 
 		record []string
 	)
 
-	file, err := os.Open(conezoneFileName)
+	file, err := os.Open(coneZoneFileName)
 	reader := csv.NewReader(file)
 
 	for {
@@ -48,11 +72,15 @@ func loadConeZoneNames() {
 	}
 }
 
-func getConeZoneName(id string) string {
+func GetConeZoneName(id string) string {
+	if coneZoneNames == nil {
+		loadConeZoneNames()
+	}
+
 	return coneZoneNames[id]
 }
 
-func load(coneZoneID string) map[string]float64 {
+func GetVehicleSpeeds(coneZoneID string) map[string]float64 {
 	result := map[string]float64{}
 
 	var (
