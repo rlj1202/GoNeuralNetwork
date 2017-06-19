@@ -8,14 +8,14 @@ import (
 
 func main() {
 	trainingData := []nn.TrainingData{
-		{mat.NewColVector(2, []float64{0, 0}), mat.NewColVector(1, []float64{1})},
-		{mat.NewColVector(2, []float64{0, 1}), mat.NewColVector(1, []float64{1})},
-		{mat.NewColVector(2, []float64{1, 0}), mat.NewColVector(1, []float64{1})},
-		{mat.NewColVector(2, []float64{1, 1}), mat.NewColVector(1, []float64{0})},
+		{mat.NewColVector(2, []float64{0, 0}, 0), mat.NewColVector(1, []float64{1}, 0)},
+		{mat.NewColVector(2, []float64{0, 1}, 0), mat.NewColVector(1, []float64{1}, 0)},
+		{mat.NewColVector(2, []float64{1, 0}, 0), mat.NewColVector(1, []float64{1}, 0)},
+		{mat.NewColVector(2, []float64{1, 1}, 0), mat.NewColVector(1, []float64{0}, 0)},
 	}
 
 	net := nn.NewNetwork([]int{2, 1}, nil, nil)
-	costs := net.StochasticGradientDescent(trainingData, 500, 4, 3.0, trainingData)
+	costs := net.StochasticGradientDescent(trainingData, 500, 4, 10.0, trainingData, nn.CE)
 
 	nn.PlotCosts(25, 400.0, costs)
 

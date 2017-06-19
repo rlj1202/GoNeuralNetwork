@@ -45,7 +45,7 @@ func main() {
 			}
 
 			for _, perm := range mat.Permutations(digits) {
-				td := nn.TrainingData{mat.NewColVector(len(digits), toFloat(perm)), mat.NewColVector(len(digits)*10, toOneHotVec(digits))}
+				td := nn.TrainingData{In: mat.NewColVector(len(digits), toFloat(perm), 0), Out: mat.NewColVector(len(digits)*10, toOneHotVec(digits), 0)}
 				data = append(data, td)
 			}
 		}
@@ -59,29 +59,32 @@ func main() {
 	log.Printf("trainingDatas: %v\n", len(trainingData))
 	log.Printf("testDatas: %v\n", len(testData))
 
-	network, _ := nn.LoadNetwork("./net_SortThreeDigits.json")
+	networkFileName := "./net_SortThreeDigits_ce.json"
+
+	network, _ := nn.LoadNetwork(networkFileName)
 	if network == nil {
+		network = new(nn.Network)
 		*network = nn.NewNetwork([]int{3, 40, 40, 30}, nil, nil)
 	}
-	costs := network.StochasticGradientDescent(trainingData, 1000, 6, 0.1, testData)
+	costs := network.StochasticGradientDescent(trainingData, 100, 6, 0.05, testData, nn.CE)
 
 	nn.PlotCosts(100, 200.0, costs)
 
-	for _, data := range trainingData {
-		_, as := network.FeedForward(data.In)
-		a := as[len(as) - 1]
+	//for _, data := range trainingData {
+	//	_, as := network.FeedForward(data.In)
+	//	a := as[len(as) - 1]
+	//
+	//	log.Printf("%.2v : %.2v (%.2v)\n", data.In.Data, a.Data, data.Out.Data)
+	//}
 
-		log.Printf("%.2v : %.2v (%.2v)\n", data.In.Data, a.Data, data.Out.Data)
-	}
-
-	for i, bias := range network.Biases {
-		log.Printf("bias %d\n", i)
-		log.Println(bias)
-	}
-	for i, weight := range network.Weights {
-		log.Printf("weight %d\n", i)
-		log.Println(weight)
-	}
+	//for i, bias := range network.Biases {
+	//	log.Printf("bias %d\n", i)
+	//	log.Println(bias)
+	//}
+	//for i, weight := range network.Weights {
+	//	log.Printf("weight %d\n", i)
+	//	log.Println(weight)
+	//}
 
 	for _, test := range testData {
 		_, as := network.FeedForward(test.In)
@@ -100,6 +103,6 @@ func main() {
 		log.Printf("int: %.2v -> result: %.2v | out: %.2v\n", convertToInt(test.In.Data), [][]float64{mat.Softmax(result.Data[0:10]), mat.Softmax(result.Data[10:20]), mat.Softmax(result.Data[20:30])}, test.Out.Data)
 	}
 
-	nn.WriteCostsResult("./SortThreeDigits.csv", costs)
-	nn.SaveNetwork("./net_SortThreeDigits.json", network)
+	//nn.WriteCostsResult("./SortThreeDigits.csv", costs)
+	nn.SaveNetwork(networkFileName, network)
 }

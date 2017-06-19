@@ -18,6 +18,15 @@ type TrainingData struct {
 	In mat.Matrix// col vector
 	Out mat.Matrix// col vector
 }
+type CostFunction struct {
+	Fn func (network Network, tds []TrainingData) float64
+	Delta func (z, a, y mat.Matrix) mat.Matrix
+}
+
+var (
+	MSE = CostFunction{MeanSquaredError, MeanSquaredErrorDelta}
+	CE = CostFunction{CrossEntropy, CrossEntropyDelta}
+)
 
 func NewNetwork(sizes []int, biases []mat.Matrix, weights []mat.Matrix) Network {
 	rand.Seed(time.Now().Unix())
@@ -30,14 +39,14 @@ func NewNetwork(sizes []int, biases []mat.Matrix, weights []mat.Matrix) Network 
 		biases = make([]mat.Matrix, numLayers - 1)
 
 		for i, size := range sizes[1:] {
-			biases[i] = mat.NewColVector(size, []float64{}).Apply(random)
+			biases[i] = mat.NewColVector(size, nil, 0).Apply(random)
 		}
 	}
 	if weights == nil {
 		weights = make([]mat.Matrix, numLayers - 1)
 
 		for i, size := range sizes[1:] {
-			weights[i] = mat.NewMatrix(size, sizes[i], []float64{}).Apply(random)
+			weights[i] = mat.NewMatrix(size, sizes[i], nil, 0).Apply(random)
 		}
 	}
 
@@ -64,7 +73,7 @@ func (net Network) FeedForward(a mat.Matrix) ([]mat.Matrix, []mat.Matrix) {
 }
 
 // Execute stochastic gradient descent algorithm to learning network.
-func (net Network) StochasticGradientDescent(trainingSet []TrainingData, epochs int, miniBatchSize int, eta float64, testSet []TrainingData) (costs []float64) {
+func (net Network) StochasticGradientDescent(trainingSet []TrainingData, epochs int, miniBatchSize int, eta float64, testSet []TrainingData, costFunction CostFunction) (costs []float64) {
 	costs = make([]float64, 0)
 
 	for epoch := 1; epoch <= epochs; epoch++ {
@@ -89,14 +98,14 @@ func (net Network) StochasticGradientDescent(trainingSet []TrainingData, epochs 
 			nablaB_sum := make([]mat.Matrix, net.NumLayers - 1)
 			nablaW_sum := make([]mat.Matrix, net.NumLayers - 1)
 			for i := 0; i < net.NumLayers - 1; i++ {
-				nablaB_sum[i] = mat.NewMatrix(net.Biases[i].Rows, net.Biases[i].Cols, nil)
-				nablaW_sum[i] = mat.NewMatrix(net.Weights[i].Rows, net.Weights[i].Cols, nil)
+				nablaB_sum[i] = mat.NewMatrix(net.Biases[i].Rows, net.Biases[i].Cols, nil, 0)
+				nablaW_sum[i] = mat.NewMatrix(net.Weights[i].Rows, net.Weights[i].Cols, nil, 0)
 			}
 
 			//log.Println("		Training each image")
 			for _, x := range miniBatch {
 				//log.Println("			Calculating gradient descent through BackPropagate")
-				nablaB, nablaW := net.BackPropagate(x)
+				nablaB, nablaW := net.BackPropagate(x, costFunction)
 
 				//log.Println("			Summing nabla b and w in each training data")
 				for i, nablaB_l := range nablaB {
@@ -119,47 +128,21 @@ func (net Network) StochasticGradientDescent(trainingSet []TrainingData, epochs 
 		}
 
 		log.Println("	Evaluating")
-		cost_sum := 0.0
-		differ_sum := mat.NewColVector(net.Sizes[len(net.Sizes) - 1], nil)
 		corrects := 0
 		for _, testData := range testSet {
 			_, as := net.FeedForward(testData.In)
 			a := as[len(as) - 1]
 
-			differ := testData.Out.Sub(a).Apply(math.Abs)
-			differ_sum = differ_sum.Add(differ)
+			//log.Printf("actual output %.2v\n", a.Data)
+			//log.Printf("expected output %.2v\n", testData.Out.Data)
 
-			differ_inner := differ.Transpose().MatProd(differ)
-			cost_sum += differ_inner.At(1, 1)
-
-			log.Printf("actual output %.2v\n", a.Data)
-			maxIndex := 0
-			maxValue := 0.0
-			for i, value := range a.Data {
-				if value > maxValue {
-					maxValue = value
-					maxIndex = i
-				}
-			}
-
-			log.Printf("expected output %.2v\n", testData.Out.Data)
-			numIndex := 0
-			for i, value := range testData.Out.Data {
-				if value == 1.0 {
-					numIndex = i
-					break
-				}
-			}
-
-			if maxIndex == numIndex {
+			if mat.Argmax(a.Data) == mat.Argmax(testData.Out.Data) {
 				corrects++
 			}
 		}
-		cost := cost_sum / float64(len(testSet))
-		differVec := differ_sum.Apply(func (a float64) float64 { return a / float64(len(testSet)) })
+		cost := costFunction.Fn(net, testSet)
 		log.Printf("		cost: %f\n", cost)
-		log.Printf("		differVec: %.2v\n", differVec.Data)
-		log.Printf("		corrects: %d\n", corrects)
+		log.Printf("		corrects(based on argmax): %d\n", corrects)
 		log.Printf("		total test datas: %d\n", len(testSet))
 
 		costs = append(costs, cost)
@@ -174,7 +157,7 @@ func (net Network) StochasticGradientDescent(trainingSet []TrainingData, epochs 
 }
 
 // Returns slices of nabla b and nabla w in each layer.
-func (net Network) BackPropagate(trainingData TrainingData) ([]mat.Matrix, []mat.Matrix) {
+func (net Network) BackPropagate(trainingData TrainingData, costFunction CostFunction) ([]mat.Matrix, []mat.Matrix) {
 	delta := make([]mat.Matrix, net.NumLayers - 1)
 	nablaB := make([]mat.Matrix, net.NumLayers - 1)
 	nablaW := make([]mat.Matrix, net.NumLayers - 1)
@@ -183,9 +166,8 @@ func (net Network) BackPropagate(trainingData TrainingData) ([]mat.Matrix, []mat
 	as = append([]mat.Matrix{trainingData.In}, as...)
 	a_L := as[len(as) - 1]
 	z_L := zs[len(zs) - 1]
-	costDerivative := a_L.Sub(trainingData.Out)
 
-	delta_L := costDerivative.Mul(z_L.Apply(sigmoidPrime))// equation (BP1)
+	delta_L := costFunction.Delta(z_L, a_L, trainingData.Out)// equation (BP1)
 	nablaB_L := delta_L// equation (BP3)
 	nablaW_L := delta_L.MatProd(as[len(as) - 2].Transpose())// equation (BP4)
 
@@ -206,6 +188,55 @@ func (net Network) BackPropagate(trainingData TrainingData) ([]mat.Matrix, []mat
 	}
 
 	return nablaB, nablaW
+}
+
+func MeanSquaredError(network Network, tds []TrainingData) float64 {
+	cost := 0.0
+
+	for _, td := range tds {
+		_, as := network.FeedForward(td.In)
+		a := as[len(as) - 1]
+		y := td.Out
+
+		differVec := y.Sub(a)
+		differInner := differVec.Transpose().MatProd(differVec)
+
+		cost += differInner.Data[0] / 2
+	}
+
+	cost /= float64(len(tds))
+
+	return cost
+}
+
+// Calculate delta of output layer.
+func MeanSquaredErrorDelta(z, a, y mat.Matrix) mat.Matrix {
+	return a.Sub(y).Mul(z.Apply(sigmoidPrime))
+}
+
+func CrossEntropy(network Network, tds []TrainingData) float64 {
+	cost := 0.0
+
+	for _, td := range tds {
+		_, as := network.FeedForward(td.In)
+		a := as[len(as) - 1]
+		y := td.Out
+
+		one := mat.NewColVector(len(y.Data), nil, 1)
+		differVec := y.Mul(a.Apply(math.Log)).Add(one.Sub(y).Mul(one.Sub(a).Apply(math.Log)))
+		differInner := differVec.Transpose().MatProd(one)
+
+		cost += differInner.Data[0]
+	}
+
+	cost /= -float64(len(tds))
+
+	return cost
+}
+
+// Calculate delta of output layer.
+func CrossEntropyDelta(z, a, y mat.Matrix) mat.Matrix {
+	return a.Sub(y)
 }
 
 func sigmoid(value float64) float64 {

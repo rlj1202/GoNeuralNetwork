@@ -105,7 +105,7 @@ func ReadCostsResult(fileName string) []float64 {
 }
 
 func WriteCostsResult(fileName string, costs []float64) {
-	file, err := os.OpenFile(fileName, os.O_WRONLY | os.O_CREATE | os.O_APPEND, 0666)
+	file, err := os.OpenFile(fileName, os.O_WRONLY | os.O_CREATE, 0666)
 
 	defer file.Close()
 

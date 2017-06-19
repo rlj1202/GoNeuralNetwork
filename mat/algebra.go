@@ -12,26 +12,37 @@ type Matrix struct {
 }
 
 // Returns new matrix struct. It automatically resizes length of data if it is needed.
-func NewMatrix(rows int, cols int, data []float64) Matrix {
+func NewMatrix(rows int, cols int, data []float64, init float64) Matrix {
 	n_data := rows * cols
 
 	if len(data) > n_data {
 		data = data[:n_data]
 	} else if len(data) < n_data {
-		data = append(data, make([]float64, n_data - len(data))...)
-	} else if data == nil {
-		data = make([]float64, n_data)
+		tmp := make([]float64, n_data - len(data))
+
+		for i := 0; i < len(tmp); i++ {
+			tmp[i] = init
+		}
+
+		data = append(data, tmp...)
 	}
+	//} else if data == nil {
+	//	data = make([]float64, n_data)
+	//
+	//	for i := 0; i < len(data); i++ {
+	//		data[i] = init
+	//	}
+	//}
 
 	return Matrix{rows, cols, data}
 }
 
-func NewRowVector(dimension int, data []float64) Matrix {
-	return NewMatrix(1, dimension, data)
+func NewRowVector(dimension int, data []float64, init float64) Matrix {
+	return NewMatrix(1, dimension, data, init)
 }
 
-func NewColVector(dimension int, data []float64) Matrix {
-	return NewMatrix(dimension, 1, data)
+func NewColVector(dimension int, data []float64, init float64) Matrix {
+	return NewMatrix(dimension, 1, data, init)
 }
 
 func (mat Matrix) String() string {
@@ -62,7 +73,7 @@ func (mat Matrix) Set(row int, col int, value float64) {
 }
 
 func (mat Matrix) Transpose() Matrix {
-	r := NewMatrix(mat.Cols, mat.Rows, make([]float64, mat.Rows * mat.Cols))
+	r := NewMatrix(mat.Cols, mat.Rows, make([]float64, mat.Rows * mat.Cols), 0)
 
 	for row := 1; row <= mat.Rows; row++ {
 		for col := 1; col <= mat.Cols; col++ {
@@ -79,7 +90,7 @@ func (a Matrix) MatProd(b Matrix) Matrix {
 		panic("matrix multiplication error: shapes between two matrices are not valid: ")// TODO
 	}
 
-	r := NewMatrix(a.Rows, b.Cols, make([]float64, a.Rows * b.Cols))
+	r := NewMatrix(a.Rows, b.Cols, make([]float64, a.Rows * b.Cols), 0)
 
 	for row := 1; row <= r.Rows; row++ {
 		for col := 1; col <= r.Cols; col++ {
@@ -97,7 +108,7 @@ func (a Matrix) MatProd(b Matrix) Matrix {
 }
 
 func (mat Matrix) Apply(f func(float64) float64) Matrix {
-	r := NewMatrix(mat.Rows, mat.Cols, nil)
+	r := NewMatrix(mat.Rows, mat.Cols, nil, 0)
 
 	for row := 1; row <= r.Rows; row++ {
 		for col := 1; col <= r.Cols; col++ {
@@ -113,7 +124,7 @@ func (a Matrix) ApplyWith(b Matrix, f func(float64, float64) float64) Matrix {
 		panic(fmt.Sprintf("panic in ApplyWith: shapes between two matices are not equal: {%d, %d}, {%d, %d}\n", a.Rows, a.Cols, b.Rows, b.Cols))
 	}
 
-	r := NewMatrix(a.Rows, a.Cols, nil)
+	r := NewMatrix(a.Rows, a.Cols, nil, 0)
 
 	for row := 1; row <= r.Rows; row++ {
 		for col := 1; col <= r.Cols; col++ {
