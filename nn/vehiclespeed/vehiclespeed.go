@@ -2,43 +2,21 @@ package main
 
 import (
 	"github.com/rlj1202/GoNeuralNetwork/nn"
-	"github.com/rlj1202/GoNeuralNetwork/kec"
-	"time"
-	"github.com/rlj1202/GoNeuralNetwork/mat"
+	"github.com/rlj1202/GoNeuralNetwork/nn/vehiclespeed/lib"
 	"log"
 )
 
 func main() {
 	id := "0010CZS440"
 
-	speeds := kec.GetVehicleSpeeds(id)
-
-	tds := make([]nn.TrainingData, 0)
-
-	for dateStr, speed := range speeds {
-		date, err := time.Parse("2006010215", dateStr)
-
-		if err != nil {
-			panic(err)
-		}
-
-		year := float64(date.Year() - 2010) / 5.0
-		month := float64(date.Month() - 1) / 11.0
-		day := float64(date.Day() - 1) / 30.0
-		hour := float64(date.Hour()) / 23.0
-
-		in := mat.NewColVector(4, []float64{year, month, day, hour}, 0)
-		out := mat.NewColVector(1, []float64{speed / 150.0}, 0)
-		td := nn.TrainingData{In: in, Out: out}
-		tds = append(tds, td)
-	}
+	tds := vehiclespeed.LoadVehicleSpeeds("./nn/vehiclespeed/lib/speeds_" + id + ".csv")
 
 	network, _ := nn.LoadNetwork("./net_VehicleSpeed.json")
 	if network == nil {
 		network = new(nn.Network)
 		*network = nn.NewNetwork([]int{4, 30, 30, 30, 1}, nil, nil)
 	}
-	costs := network.StochasticGradientDescent(tds, 100, 50, 0.01, tds, nn.CE)
+	costs := network.StochasticGradientDescent(tds, 50, 50, 0.01, tds, nn.CE)
 	nn.PlotCosts(30, 200.0, costs)
 
 	//for hour := 0; hour < 24; hour++ {

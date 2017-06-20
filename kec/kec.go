@@ -7,42 +7,54 @@ import (
 	"strings"
 	"encoding/csv"
 	"strconv"
+	"path/filepath"
+	"time"
+	"sort"
 )
 
+type Data struct {
+	Year int
+	Month int
+	Day int
+	Hour int
+	Speed float64
+}
+type DataByDate []Data
+
 var (
-	coneZoneFileName = "./kec/ETC_conezone.txt"
+	coneZoneFileName = "ETC_conezone.txt"
 
 	fileNames = []string{
-		"./kec/VDS_conezone_speed_201401.txt",
-		"./kec/VDS_conezone_speed_201402.txt",
-		"./kec/VDS_conezone_speed_201403.txt",
-		"./kec/VDS_conezone_speed_201404.txt",
-		"./kec/VDS_conezone_speed_201405.txt",
-		"./kec/VDS_conezone_speed_201406.txt",
-		"./kec/VDS_conezone_speed_201407.txt",
-		"./kec/VDS_conezone_speed_201408.txt",
-		"./kec/VDS_conezone_speed_201409.txt",
-		"./kec/VDS_conezone_speed_201410.txt",
-		"./kec/VDS_conezone_speed_201411.txt",
-		"./kec/VDS_conezone_speed_201412.txt",
-		"./kec/VDS_conezone_speed_201501.txt",
-		"./kec/VDS_conezone_speed_201502.txt",
-		"./kec/VDS_conezone_speed_201503.txt",
-		"./kec/VDS_conezone_speed_201504.txt",
-		"./kec/VDS_conezone_speed_201505.txt",
-		"./kec/VDS_conezone_speed_201506.txt",
-		"./kec/VDS_conezone_speed_201507.txt",
-		"./kec/VDS_conezone_speed_201508.txt",
-		"./kec/VDS_conezone_speed_201509.txt",
-		"./kec/VDS_conezone_speed_201510.txt",
-		"./kec/VDS_conezone_speed_201511.txt",
-		"./kec/VDS_conezone_speed_201512.txt",
+		"VDS_conezone_speed_201401.txt",
+		"VDS_conezone_speed_201402.txt",
+		"VDS_conezone_speed_201403.txt",
+		"VDS_conezone_speed_201404.txt",
+		"VDS_conezone_speed_201405.txt",
+		"VDS_conezone_speed_201406.txt",
+		"VDS_conezone_speed_201407.txt",
+		"VDS_conezone_speed_201408.txt",
+		"VDS_conezone_speed_201409.txt",
+		"VDS_conezone_speed_201410.txt",
+		"VDS_conezone_speed_201411.txt",
+		"VDS_conezone_speed_201412.txt",
+		"VDS_conezone_speed_201501.txt",
+		"VDS_conezone_speed_201502.txt",
+		"VDS_conezone_speed_201503.txt",
+		"VDS_conezone_speed_201504.txt",
+		"VDS_conezone_speed_201505.txt",
+		"VDS_conezone_speed_201506.txt",
+		"VDS_conezone_speed_201507.txt",
+		"VDS_conezone_speed_201508.txt",
+		"VDS_conezone_speed_201509.txt",
+		"VDS_conezone_speed_201510.txt",
+		"VDS_conezone_speed_201511.txt",
+		"VDS_conezone_speed_201512.txt",
 	}
 
 	coneZoneNames map[string]string
 )
 
-func loadConeZoneNames() {
+func loadConeZoneNames(dirPath string) {
 	if coneZoneNames == nil {
 		coneZoneNames = make(map[string]string, 0)
 	}
@@ -53,7 +65,7 @@ func loadConeZoneNames() {
 		record []string
 	)
 
-	file, err := os.Open(coneZoneFileName)
+	file, err := os.Open(filepath.Clean(dirPath) + string(filepath.Separator) + coneZoneFileName)
 	reader := csv.NewReader(file)
 
 	for {
@@ -72,16 +84,16 @@ func loadConeZoneNames() {
 	}
 }
 
-func GetConeZoneName(id string) string {
+func GetConeZoneName(dirPath string, id string) string {
 	if coneZoneNames == nil {
-		loadConeZoneNames()
+		loadConeZoneNames(dirPath)
 	}
 
 	return coneZoneNames[id]
 }
 
-func GetVehicleSpeeds(coneZoneID string) map[string]float64 {
-	result := map[string]float64{}
+func GetVehicleSpeeds(dirPath, coneZoneID string) []Data {
+	result := make([]Data, 0)
 
 	var (
 		err error
@@ -93,7 +105,7 @@ func GetVehicleSpeeds(coneZoneID string) map[string]float64 {
 	)
 
 	for _, fileName := range fileNames {
-		file, err = os.Open(fileName)
+		file, err = os.Open(filepath.Clean(dirPath) + string(filepath.Separator) + fileName)
 
 		if err != nil {
 			panic(err)
@@ -112,20 +124,55 @@ func GetVehicleSpeeds(coneZoneID string) map[string]float64 {
 
 			rawData := strings.Split(string(part), "|")
 
-			date := rawData[0]
-			hour := rawData[1]
+			date, _ := time.Parse("20060102", rawData[0])
+			year := date.Year()
+			month := int(date.Month())
+			day := date.Day()
+			hour, _ := strconv.ParseInt(rawData[1], 10, 64)
 			coneZone := rawData[2]
 
 			roadType0, _ := strconv.ParseInt(rawData[3], 10, 0)
 			roadType := int(roadType0)
 
-			vehicleSpeed, _ := strconv.ParseFloat(rawData[4], 64)
+			speed, _ := strconv.ParseFloat(rawData[4], 64)
 
 			if coneZoneID == coneZone && roadType == 1 {
-				result[date + hour] = vehicleSpeed
+				result = append(result, Data{year, month, day, int(hour), speed})
 			}
 		}
 	}
 
+	sort.Sort(DataByDate(result))
+
 	return result
+}
+
+func (data DataByDate) Len() int {
+	return len(data)
+}
+
+func (data DataByDate) Less(i, j int) bool {
+	a, b := data[i], data[j]
+
+	if a.Year < b.Year {
+		return true
+	} else if a.Year == b.Year {
+		if a.Month < b.Month {
+			return true
+		} else if a.Month == b.Month {
+			if a.Day < b.Day {
+				return true
+			} else if a.Day == b.Day {
+				if a.Hour < b.Hour {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+func (data DataByDate) Swap(i, j int) {
+	data[i], data[j] = data[j], data[i]
 }
