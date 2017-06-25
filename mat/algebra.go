@@ -3,6 +3,7 @@ package mat
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 )
 
 type Matrix struct {
@@ -87,7 +88,7 @@ func (mat Matrix) Transpose() Matrix {
 // Matrix product.
 func (a Matrix) MatProd(b Matrix) Matrix {
 	if a.Cols != b.Rows {
-		panic("matrix multiplication error: shapes between two matrices are not valid: ")// TODO
+		panic("matrix multiplication error: shapes between two matrices are not valid: " + strconv.FormatInt(int64(a.Cols), 10) + " != " + strconv.FormatInt(int64(b.Rows), 10))// TODO
 	}
 
 	r := NewMatrix(a.Rows, b.Cols, make([]float64, a.Rows * b.Cols), 0)

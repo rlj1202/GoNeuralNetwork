@@ -13,10 +13,8 @@ import (
 )
 
 type Data struct {
-	Year int
-	Month int
-	Day int
-	Hour int
+	ConeZone string
+	time.Time
 	Speed float64
 }
 type DataByDate []Data
@@ -49,6 +47,8 @@ var (
 		"VDS_conezone_speed_201510.txt",
 		"VDS_conezone_speed_201511.txt",
 		"VDS_conezone_speed_201512.txt",
+		"VDS_conezone_speed_201704.txt",
+		"VDS_conezone_speed_201705.txt",
 	}
 
 	coneZoneNames map[string]string
@@ -92,7 +92,8 @@ func GetConeZoneName(dirPath string, id string) string {
 	return coneZoneNames[id]
 }
 
-func GetVehicleSpeeds(dirPath, coneZoneID string) []Data {
+// (from time.Time) inclusive (to time.Time) exclusive
+func GetVehicleSpeeds(dirPath, coneZoneID string, from, to time.Time) []Data {
 	result := make([]Data, 0)
 
 	var (
@@ -124,11 +125,9 @@ func GetVehicleSpeeds(dirPath, coneZoneID string) []Data {
 
 			rawData := strings.Split(string(part), "|")
 
-			date, _ := time.Parse("20060102", rawData[0])
-			year := date.Year()
-			month := int(date.Month())
-			day := date.Day()
+			date, _ := time.ParseInLocation("20060102", rawData[0], time.Local)
 			hour, _ := strconv.ParseInt(rawData[1], 10, 64)
+			date = date.Add(time.Duration(hour) * time.Hour)
 			coneZone := rawData[2]
 
 			roadType0, _ := strconv.ParseInt(rawData[3], 10, 0)
@@ -136,8 +135,8 @@ func GetVehicleSpeeds(dirPath, coneZoneID string) []Data {
 
 			speed, _ := strconv.ParseFloat(rawData[4], 64)
 
-			if coneZoneID == coneZone && roadType == 1 {
-				result = append(result, Data{year, month, day, int(hour), speed})
+			if coneZoneID == coneZone && roadType == 1 && (date.After(from) || date.Equal(from)) && date.Before(to) {
+				result = append(result, Data{coneZone, date, speed})
 			}
 		}
 	}
@@ -152,25 +151,9 @@ func (data DataByDate) Len() int {
 }
 
 func (data DataByDate) Less(i, j int) bool {
-	a, b := data[i], data[j]
+	a, b := data[i].Time, data[j].Time
 
-	if a.Year < b.Year {
-		return true
-	} else if a.Year == b.Year {
-		if a.Month < b.Month {
-			return true
-		} else if a.Month == b.Month {
-			if a.Day < b.Day {
-				return true
-			} else if a.Day == b.Day {
-				if a.Hour < b.Hour {
-					return true
-				}
-			}
-		}
-	}
-
-	return false
+	return a.Before(b)
 }
 
 func (data DataByDate) Swap(i, j int) {

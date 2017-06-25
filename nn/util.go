@@ -69,7 +69,7 @@ func ConcatCostsResult(fileNames ...string) []float64 {
 func ReadCostsResult(fileName string) []float64 {
 	result := make([]float64, 0)
 
-	file, err := os.Open(fileName)
+	file, err := os.OpenFile(fileName, os.O_RDONLY, 0666)
 	defer file.Close()
 
 	if err != nil {

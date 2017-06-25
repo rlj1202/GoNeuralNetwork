@@ -64,3 +64,10 @@ func Permutations(input []int) [][]int {
 
 	return res
 }
+
+func Remap(value, fromMin, fromMax, toMin, toMax float64) float64 {
+	fromLen := fromMax - fromMin
+	toLen := toMax - toMin
+
+	return ((value - fromMin) / fromLen) * toLen + toMin
+}
